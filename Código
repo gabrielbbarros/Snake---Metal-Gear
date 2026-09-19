@@ -1,0 +1,272 @@
+import pygame
+import random
+import sys
+
+pygame.init()
+pygame.mixer.init()
+
+# vou definir o tamanho da minha tela
+LARGURA = 1200
+ALTURA = 800
+
+# carrega o som da comida, se existir
+som_comida = None
+for nome_arquivo in ("comida.mp3", "comida.wav"):
+    try:
+        som_comida = pygame.mixer.Sound(nome_arquivo)
+        som_comida.set_volume(0.8)
+        break
+    except pygame.error:
+        continue
+
+# eu crio a janela do jogoo
+tela = pygame.display.set_mode((LARGURA, ALTURA))
+pygame.display.set_caption("Snake - Metal Gear")
+
+# carrega a imagem de fundo
+def criar_fundo():
+    fundo = pygame.image.load("fundo.png").convert()
+    return pygame.transform.scale(fundo, (LARGURA, ALTURA))
+
+fundo = criar_fundo()
+
+# conntrola a velocidade do jogo
+relogio = pygame.time.Clock()
+
+# tamannho de cada quadrado
+TAMANHO = 20
+VELOCIDADE = 10
+
+# as cores que eu irei usar
+PRETO = (0, 0, 0)
+BRANCO = (255, 255, 255)
+VERDE = (160, 32, 240)
+VERDE_ESCURO = (52, 21, 57)
+VERMELHO = (255, 255, 0)
+
+# fonnte dos textos
+fonte = pygame.font.SysFont("arial", 30)
+fonte_game_over = pygame.font.SysFont("arial", 60)
+
+
+def criar_comida(cobra):
+    # escolhe uma posiçã aleatoria para a comida
+    # até ela não ficar em cima da cobra
+    while True:
+        x = random.randrange(0, LARGURA, TAMANHO)
+        y = random.randrange(0, ALTURA, TAMANHO)
+
+        comida = (x, y)
+
+        # se não estiver em cima da cobra, pode usar essa posição
+        if comida not in cobra:
+            return comida
+
+
+def desenhar_cobra(cobra):
+    # passa por cada parte da cobra e desenha na tela
+    for i, parte in enumerate(cobra):
+        x, y = parte
+
+        # a cabeça fica um pouco mais escura
+        if i == 0:
+            cor = VERDE_ESCURO
+        else:
+            cor = VERDE
+
+        pygame.draw.rect(tela, cor, (x, y, TAMANHO, TAMANHO))
+
+
+def desenhar_comida(comida):
+    # pega a posição da comida
+    x, y = comida
+
+    # desenha a comida como um quadrado vermelho
+    pygame.draw.rect(tela, VERMELHO, (x, y, TAMANHO, TAMANHO))
+
+
+def mostrar_pontos(pontos):
+    # cria o texto mostrando a pontuação
+    texto = fonte.render(f"placar: {pontos}", True, BRANCO)
+
+    # coloca o texto no canto da tela
+    tela.blit(texto, (20, 10))
+
+
+def bateu(cobra):
+    # pega a posição da cabeça
+    x, y = cobra[0]
+
+    # verifica se bateu nas paredes
+    if x < 0 or x >= LARGURA:
+        return True
+
+    if y < 0 or y >= ALTURA:
+        return True
+
+    # verifica se a cabeça bateu no próprio corpo
+    if cobra[0] in cobra[1:]:
+        return True
+
+    return False
+
+
+def game_over(pontos):
+    # essa parte fica mostrando a tela de Game Over
+    while True:
+        tela.fill(PRETO)
+
+        texto = fonte_game_over.render("VOCE FRACASSOU!!, MAS NAO DESISTA", True, VERMELHO)
+        pontos_texto = fonte.render(f"Placar: {pontos}", True, BRANCO)
+        reiniciar = fonte.render("R - jogar novamente", True, BRANCO)
+        sair = fonte.render("ESC - sair", True, BRANCO)
+
+        # coloca os textos no meio da tela
+        tela.blit(
+            texto,
+            texto.get_rect(center=(LARGURA // 2, ALTURA // 2 - 80))
+        )
+
+        tela.blit(
+            pontos_texto,
+            pontos_texto.get_rect(center=(LARGURA // 2, ALTURA // 2 - 20))
+        )
+
+        tela.blit(
+            reiniciar,
+            reiniciar.get_rect(center=(LARGURA // 2, ALTURA // 2 + 40))
+        )
+
+        tela.blit(
+            sair,
+            sair.get_rect(center=(LARGURA // 2, ALTURA // 2 + 80))
+        )
+
+        pygame.display.flip()
+
+        # verifica se alguma tecla foi apertada
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if evento.type == pygame.KEYDOWN:
+
+                # aperta R para recomeçar de novo
+                if evento.key == pygame.K_r:
+                    return
+
+                # aperta ESC para fechar
+                if evento.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
+
+
+def jogar():
+    # a cobra começa com 2 partes
+    cobra = [
+        (400, 300),
+        (380, 300)
+    ]
+
+    # começa andando para a direita
+    direcao = "DIREITA"
+    proxima_direcao = direcao
+
+    # cria a primeira comida
+    comida = criar_comida(cobra)
+
+    # começa com 0 pontos
+    pontos = 0
+
+    while True:
+
+        # aqui verifica as teclas que o jogador aperta
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if evento.type == pygame.KEYDOWN:
+
+                # essas condições impedem a cobra de voltar direto
+                if evento.key == pygame.K_UP and direcao != "BAIXO":
+                    proxima_direcao = "CIMA"
+
+                elif evento.key == pygame.K_DOWN and direcao != "CIMA":
+                    proxima_direcao = "BAIXO"
+
+                elif evento.key == pygame.K_LEFT and direcao != "DIREITA":
+                    proxima_direcao = "ESQUERDA"
+
+                elif evento.key == pygame.K_RIGHT and direcao != "ESQUERDA":
+                    proxima_direcao = "DIREITA"
+
+        # atualiza a direção da cobra
+        direcao = proxima_direcao
+
+        # pega a posição atual da cabeça
+        x, y = cobra[0]
+
+        # muda a posição da cabeça dependendo da direção
+        if direcao == "CIMA":
+            y -= TAMANHO
+
+        elif direcao == "BAIXO":
+            y += TAMANHO
+
+        elif direcao == "ESQUERDA":
+            x -= TAMANHO
+
+        elif direcao == "DIREITA":
+            x += TAMANHO
+
+        nova_cabeca = (x, y)
+
+        # coloca a nova cabeça no começo da lista
+        cobra.insert(0, nova_cabeca)
+
+        # verifica se a cobra pegou a comida
+        if nova_cabeca == comida:
+            if som_comida is not None:
+                som_comida.play()
+            pontos += 10
+
+            # cria outra comida em um lugar diferente
+            comida = criar_comida(cobra)
+
+        else:
+            # se não pegou comida, tira a última parte
+            cobra.pop()
+
+        # verifica se a cobra bateu
+        if bateu(cobra):
+            return pontos
+
+        # limpa a tela
+        tela.blit(fundo, (0, 0))
+
+        # faz a cobra, comida e pontos
+        desenhar_cobra(cobra)
+        desenhar_comida(comida)
+        mostrar_pontos(pontos)
+
+        # atualiza a tela
+        pygame.display.flip()
+
+        # controla a velocidade da cobra
+        relogio.tick(VELOCIDADE)
+
+
+def main():
+    # fica rodando o jogo até o jogador fechar
+    while True:
+        pontos = jogar()
+
+        # quando perde, mostra a tela de Game Over
+        game_over(pontos)
+
+
+# começa o programa
+if __name__ == "__main__":
+    main()
